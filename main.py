@@ -313,10 +313,10 @@ def create_dc_poi_map():
         html_content = html_content.replace('{config_json}', config_json)
         
         # Write HTML file
-        with open('DC_map.html', 'w') as f:
+        with open('index.html', 'w') as f:
             f.write(html_content)
         
-        print("Map created successfully. Check DC_map.html")
+        print("Map created successfully. Check index.html")
         
     except Exception as e:
         print(f"Error creating HTML: {e}")
