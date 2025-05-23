@@ -1,0 +1,2204 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Washington DC Bike Rental 2024</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <!-- Add Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Add Flatpickr for calendar -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <style>
+        :root {
+            --sidebar-bg: #f8f9fa;
+            --sidebar-text: #333;
+            --sidebar-border: #ddd;
+            --description-text: #555;
+            --toggle-button-bg: #4285f4;
+            --toggle-button-hover: #3367d6;
+            --toggle-button-text: white;
+        }
+
+        /* Dark mode */
+        .dark-mode {
+            --sidebar-bg: #222;
+            --sidebar-text: #e0e0e0;
+            --sidebar-border: #444;
+            --description-text: #aaa;
+            --toggle-button-bg: #3367d6;
+            --toggle-button-hover: #4285f4;
+            --toggle-button-text: white;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            position: relative;
+        }
+        .main-container {
+            display: flex;
+            width: 100%;
+            height: 100vh;
+            position: relative;
+        }
+        #control-panel {
+            width: 280px;
+            padding: 0;
+            background-color: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            height: 100vh;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+        }
+        #control-panel > *:not(h2) {
+            padding-left: 15px;
+            padding-right: 15px;
+        }
+        #control-panel > *:last-child {
+            padding-bottom: 15px;
+        }
+        #control-panel > *:first-child:not(h2) {
+            padding-top: 15px;
+        }
+        #control-panel.collapsed {
+            margin-left: -280px; 
+        }
+        #map-container {
+            flex-grow: 1;
+            height: 100vh;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        #toggle-button {
+            position: fixed;
+            left: 260px; 
+            top: 10px;
+            z-index: 9999; 
+            background-color: var(--toggle-button-bg);
+            color: var(--toggle-button-text);
+            border: none;
+            border-radius: 50%; 
+            width: 32px;
+            height: 32px;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: left 0.3s ease, background-color 0.3s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #toggle-button.collapsed {
+            left: 10px;
+        }
+        #toggle-button:hover {
+            background-color: var(--toggle-button-hover);
+        }
+        /* toggle button styling */
+        #toggle-button i {
+            font-size: 14px;
+        }
+        #control-panel h2 {
+            position: sticky;
+            top: 0;
+            margin: 0 -15px; /* Negative margin to offset parent padding */
+            padding: 15px; /* Same padding as the parent */
+            background-color: var(--sidebar-bg);
+            z-index: 1001;
+            width: calc(100% + 30px); /* Compensate for the negative margins */
+        }
+        .layer-group {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--sidebar-border);
+        }
+        .layer-group h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 16px;
+            color: var(--sidebar-text);
+        }
+        .layer-control {
+            margin-bottom: 10px;
+        }
+        .sub-layer {
+            margin-left: 20px;
+            margin-top: 5px;
+        }
+        .layer-control label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        .layer-control input {
+            margin-right: 10px;
+        }
+        .color-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .description {
+            font-size: 0.9em;
+            color: var(--description-text);
+            margin-top: 5px;
+            margin-left: 22px;
+        }
+        .grid-controls, .bike-controls {
+            margin-top: 12px;
+            margin-left: 22px;
+            padding-top: 8px;
+            border-top: 1px dotted var(--sidebar-border);
+            display: none;
+        }
+        .grid-controls.visible, .bike-controls.visible {
+            display: block;
+        }
+        .control-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .control-row label {
+            width: 90px;
+            font-size: 0.9em;
+        }
+        .control-row select, .control-row input {
+            flex: 1;
+        }
+
+        /* Theme switch styling */
+        .theme-switch-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--sidebar-border);
+        }
+        .theme-switch-label {
+            margin-right: 10px;
+            font-weight: 500;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .3s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        .dark-mode-icons {
+            display: flex;
+            align-items: center;
+            margin-left: 8px;
+        }
+        .dark-mode-icons i {
+            margin: 0 4px;
+        }
+        
+        /* Color swatch styling */
+        .color-swatch {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .color-option {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        .color-option.selected {
+            border-color: #4285f4;
+        }
+        .color-option:hover {
+            transform: scale(1.1);
+            transition: transform 0.2s;
+        }
+        
+        /* Heat gradient for bike density */
+        .heat-gradient {
+            width: 80%;
+            height: 10px;
+            margin-top: 5px;
+            margin-left: 22px;
+            border-radius: 5px;
+            background: linear-gradient(to right, blue, red);
+        }
+        
+        /* Date picker styling */
+        .date-picker {
+            margin-top: 10px;
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--sidebar-border);
+            border-radius: 4px;
+            background-color: var(--sidebar-bg);
+            color: var(--sidebar-text);
+        }
+        
+        /* Ride counter badge */
+        .ride-counter {
+            display: inline-block;
+            background-color: #4285f4;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 0.8em;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+        
+        /* Flatpickr styles for dark mode */
+        .dark-mode .flatpickr-calendar {
+            background: #333;
+            border-color: #444;
+            box-shadow: 0 3px 13px rgba(0,0,0,0.25);
+        }
+        .dark-mode .flatpickr-months .flatpickr-month,
+        .dark-mode .flatpickr-current-month .flatpickr-monthDropdown-months,
+        .dark-mode .flatpickr-monthDropdown-month {
+            background: #333;
+            color: #e0e0e0;
+            fill: #e0e0e0;
+        }
+        .dark-mode .flatpickr-weekday {
+            color: #bbb;
+        }
+        .dark-mode .flatpickr-day {
+            color: #e0e0e0;
+        }
+        .dark-mode .flatpickr-day.disabled {
+            color: #555;
+        }
+        .dark-mode .flatpickr-day.selected {
+            background: #4285f4;
+            border-color: #4285f4;
+            color: white;
+        }
+        
+        /* Hide the modebar from Plotly */
+        .modebar {
+            display: none !important;
+        }
+        
+        /* Right sidebar styles*/
+        #right-sidebar {
+            width: 300px;
+            padding: 15px;
+            background-color: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+            height: 100vh;
+            overflow-y: auto;
+            position: absolute;
+            top: 0;
+            right: 0;
+            z-index: 1000;
+            transition: transform 0.3s ease;
+        }
+        
+        #right-sidebar.collapsed {
+            transform: translateX(100%);
+        }
+        
+        #right-toggle-button {
+            position: fixed;
+            right: 310px;
+            top: 10px;
+            z-index: 9999;
+            background-color: var(--toggle-button-bg);
+            color: var(--toggle-button-text);
+            border: none;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: right 0.3s ease, background-color 0.3s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #right-toggle-button.collapsed {
+            right: 10px;
+        }
+        
+        #right-toggle-button:hover {
+            background-color: var(--toggle-button-hover);
+        }
+        
+        .weather-stats {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-gap: 10px;
+        }
+        
+        .weather-stat-card {
+            background-color: rgba(66, 133, 244, 0.1);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+        
+        .weather-stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        
+        .weather-stat-label {
+            font-size: 0.8em;
+            color: var(--description-text);
+        }
+        
+        #temp-chart {
+            width: 100%;
+            height: 350px;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            background-color: var(--sidebar-bg);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .no-data-message {
+            text-align: center;
+            margin-top: 20px;
+            color: var(--description-text);
+            font-style: italic;
+        }
+
+        /* Time Slider Styles */
+        .time-slider-container {
+            position: absolute !important;
+            bottom: 20px;
+            margin: 0px !important;
+            left: 20px !important;
+            right: 20px !important;
+            transform: none !important;
+            width: auto !important;
+            background-color: var(--sidebar-bg);
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: all 0.3s ease;
+            padding-bottom: 25px;
+        }
+
+        body.right-visible .time-slider-container {
+            right: 340px !important;
+        }
+
+        #right-sidebar:not(.collapsed) ~ #map-container .time-slider-container,
+        .right-sidebar-visible .time-slider-container {
+            left: 40%;
+            width: 60%; 
+            transform: translateX(-50%);
+        }
+
+        .time-slider-container.hidden {
+            display: none;
+        }
+
+        .time-slider-header {
+            display: flex;
+            justify-content: center; 
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .time-slider-title {
+            font-weight: bold;
+            color: var(--sidebar-text);
+            font-size: 1.1em; 
+        }
+
+        .time-value {
+            font-weight: bold;
+            color: var(--toggle-button-bg);
+        }
+
+        /* Hide the current hour display on time slider */
+        #current-hour-display {
+            display: none !important;
+        }
+
+        .time-slider {
+            width: 100%;
+            margin: 10px 0 5px 0; 
+            margin-bottom: 15px;
+        }
+
+        .slider-ticks {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-top: 8px;
+            color: var(--description-text);
+            font-size: 0.8em;
+            height: 20px; 
+            overflow: visible; 
+        }
+
+        .slider-ticks span {
+            transform: rotate(-45deg); 
+            transform-origin: top left;
+            display: inline-block;
+            white-space: nowrap; 
+            height: 20px; 
+            position: relative;
+            top: 0;
+            padding-top: 5px; 
+        }
+
+        .hour-tick {
+            position: relative;
+            width: 1px;
+        }
+
+        #timeline-toggle-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1001;
+            background-color: var(--toggle-button-bg);
+            color: var(--toggle-button-text);
+            border: none;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: background-color 0.3s ease;
+        }
+
+        #timeline-toggle-button:hover {
+            background-color: var(--toggle-button-hover);
+        }
+
+        #timeline-toggle-button i {
+            font-size: 14px;
+        }
+
+        .time-slider-container.collapsed {
+            transform: translateY(calc(100% - 42px)) translateX(-50%);
+        }
+
+        .time-slider-container.collapsed .time-slider-header,
+        .time-slider-container.collapsed .bike-chart-container,
+        .time-slider-container.collapsed .time-slider,
+        .time-slider-container.collapsed .slider-ticks,
+        .time-slider-container.collapsed .play-controls {
+            display: none;
+        }
+
+        .time-slider-container.collapsed::before {
+            content: "Timeline";
+            display: block;
+            font-weight: bold;
+            text-align: center;
+            padding: 10px 0;
+            color: var(--sidebar-text);
+        }
+
+        /* Play/pause button */
+        .play-controls {
+            display: flex;
+            gap: 10px; 
+            justify-content: center; 
+            margin-top: 10px; 
+        }
+
+        .play-control {
+            background-color: var(--toggle-button-bg);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: background-color 0.3s ease;
+        }
+
+        .play-control:hover {
+            background-color: var(--toggle-button-hover);
+        }
+        
+        /* Bike Chart Styles */
+        .bike-chart-container {
+            margin: 0 0 5px 0;  
+            width: 100%;
+            height: 70px;      
+            background-color: transparent; 
+            padding: 0;
+        }
+
+        #bike-hourly-chart {
+            width: 100%;
+            height: 100%;
+        }
+
+
+        .slider-ticks {
+            margin-top: 2px;
+        }
+
+
+        /* View Mode Toggle CSS */
+        .view-mode-container {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-top: 8px;
+            margin-bottom: 12px;
+        }
+
+        .view-mode-label {
+            margin-bottom: 8px;
+            color: var(--sidebar-text);
+            font-size: 1em;
+            font-weight: normal;
+        }
+
+        .toggle-switch-container {
+            width: 100%;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+            height: 38px;
+            border-radius: 19px;
+            background-color: var(--sidebar-bg);
+            overflow: hidden;
+            border: 1px solid var(--sidebar-border);
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--sidebar-bg);
+            transition: .3s;
+            border-radius: 19px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 32px;
+            width: 49.5%;
+            left: 3px;
+            bottom: 3px;
+            background-color: #4285f4;
+            transition: .3s;
+            border-radius: 16px;
+            z-index: 1;
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(94%);
+        }
+
+        .toggle-labels {
+            position: absolute;
+            display: flex;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .toggle-label {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--sidebar-text);
+            opacity: 0.7;
+            font-size: 1em;
+            padding: 0 10px;
+            transition: color 0.3s;
+        }
+
+        input:not(:checked) ~ .toggle-labels .toggle-label:first-child {
+            color: white;
+            font-weight: 500;
+        }
+
+        input:checked ~ .toggle-labels .toggle-label:last-child {
+            color: white;
+            font-weight: 500;
+        }
+
+        /* Light mode specifics */
+        body:not(.dark-mode) .toggle-switch {
+            background-color: #e0e0e0;
+            border-color: #ccc;
+        }
+
+        body:not(.dark-mode) .toggle-slider {
+            background-color: #e0e0e0;
+        }
+
+        body:not(.dark-mode) .toggle-label {
+            color: #333;
+            opacity: 0.8;
+        }
+
+        /* Ensure text is white on blue slider in both modes */
+        .toggle-slider:before ~ .toggle-labels .toggle-label {
+            color: white;
+        }
+        /*weather description icons and texts*/
+        .weather-stat-value {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            flex-wrap: wrap;
+            min-height: 30px; 
+        }
+        .weather-stat-value i {
+            font-size: 1.2em;
+        }
+        #weather-description {
+            font-size: 0.9em;
+            text-align: center;
+            word-break: break-word;
+        }
+    </style>
+</head>
+<body>
+    <!-- Toggle button for left sidebar -->
+    <button id="toggle-button" aria-label="Toggle Sidebar">
+        <i class="fas fa-chevron-left"></i>
+    </button>
+    
+    <!-- Toggle button for right sidebar -->
+    <button id="right-toggle-button" aria-label="Toggle Right Sidebar" class="collapsed">
+        <i class="fas fa-chevron-left"></i>
+    </button>
+    
+    <div class="main-container">
+        <!-- Left Sidebar - Control Panel -->
+        <div id="control-panel">
+            <h2>Washington DC Bike Rental</h2>
+            
+            <!-- Dark mode switch -->
+            <div class="theme-switch-container">
+                <div class="theme-switch-label">Theme:</div>
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-sun"></i>
+                    <label class="switch" style="margin: 0 8px;">
+                        <input type="checkbox" id="theme-switch">
+                        <span class="slider"></span>
+                    </label>
+                    <i class="fas fa-moon"></i>
+                </div>
+            </div>
+            
+            <!-- Bike Density Layer (with Date Picker) -->
+            <div class="layer-group">
+                <h3>Bike Data</h3>
+                <div class="layer-control">
+                    <label>
+                        <input type="checkbox" id="layer-bike-density">
+                        <span class="color-indicator" style="background: linear-gradient(to right, blue, red);"></span>
+                        Bike Usage Density <span id="ride-count" class="ride-counter">0</span>
+                    </label>
+                    <div class="description">Heatmap showing bike rental concentration</div>
+                    <div class="heat-gradient"></div>
+                    <div class="view-mode-container">
+                        <div class="view-mode-label">View Mode:</div>
+                        <div class="toggle-switch-container">
+                            <div class="toggle-row">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="view-mode-toggle">
+                                    <span class="toggle-slider"></span>
+                                    <div class="toggle-labels">
+                                        <span class="toggle-label">Hourly</span>
+                                        <span class="toggle-label">Overall</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Bike Date Controls -->
+                <div id="bike-controls" class="bike-controls">
+                    <div class="control-row">
+                        <label for="bike-date">Date:</label>
+                        <input type="text" id="bike-date" class="date-picker" placeholder="Select a date">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Points of Interest Layer -->
+            <div class="layer-group">
+                <h3>Points of Interest</h3>
+                <div class="layer-control">
+                    <label>
+                        <input type="checkbox" id="layer-poi-all">
+                        <span class="color-indicator" style="background: linear-gradient(to right, darkblue, darkgreen, purple, orange, brown, teal, blue, yellow, pink);"></span>
+                        All Points of Interest
+                    </label>
+                    <div class="description">Museums, universities, memorials, attractions, cafes, restaurants, bars, pubs, nightclubs</div>
+                </div>
+                <div class="sub-layer">
+                    <div class="layer-control">
+                        <label><input type="checkbox" id="layer-poi-museums"><span class="color-indicator" style="background-color: darkblue;"></span>Museums</label>
+                    </div>
+                    <div class="layer-control">
+                        <label><input type="checkbox" id="layer-poi-universities"><span class="color-indicator" style="background-color: darkgreen;"></span>Universities</label>
+                    </div>
+                    <div class="layer-control">
+                        <label><input type="checkbox" id="layer-poi-memorials"><span class="color-indicator" style="background-color: purple;"></span>Memorials</label>
+                    </div>
+                    <div class="layer-control">
+                        <label><input type="checkbox" id="layer-poi-attractions"><span class="color-indicator" style="background-color: orange;"></span>Attractions</label>
+                    </div>
+                    <div class="layer-control">
+                        <label><input type="checkbox" id="layer-poi-cafes"><span class="color-indicator" style="background-color: brown;"></span>Cafes</label>
+                    </div>
+                    <div class="layer-control">
+                        <label><input type="checkbox" id="layer-poi-restaurants"><span class="color-indicator" style="background-color: teal;"></span>Restaurants</label>
+                    </div>
+                    <div class="layer-control">
+                        <label><input type="checkbox" id="layer-poi-bars"><span class="color-indicator" style="background-color: blue;"></span>Bars</label>
+                    </div>
+                    <div class="layer-control">
+                        <label><input type="checkbox" id="layer-poi-pubs"><span class="color-indicator" style="background-color: yellow;"></span>Pubs</label>
+                    </div>
+                    <div class="layer-control">
+                        <label><input type="checkbox" id="layer-poi-nightclubs"><span class="color-indicator" style="background-color: pink;"></span>Nightclubs</label>
+                    </div>
+                </div>
+            </div>
+            
+            
+            <!-- Grid Layer Control with Customization Options -->
+            <div class="layer-group">
+                <h3>Map Features</h3>
+                <div class="layer-control">
+                    <label>
+                        <input type="checkbox" id="layer-grid">
+                        <span id="grid-color-indicator" class="color-indicator" style="background-color: rgba(255,0,0,0.5); border: 1px solid #888;"></span>
+                        Grid Overlay
+                    </label>
+                    <div class="description">Display a coordinate grid on the map</div>
+                </div>
+                
+                <!-- Grid Customization Controls -->
+                <div id="grid-controls" class="grid-controls">
+                    <div class="control-row">
+                        <label for="grid-color">Color:</label>
+                        <div class="color-swatch">
+                            <div class="color-option" data-color="rgba(0,0,0,0.5)" style="background-color: rgba(0,0,0,0.5);"></div>
+                            <div class="color-option selected" data-color="rgba(255,0,0,0.5)" style="background-color: rgba(255,0,0,0.5);"></div>
+                            <div class="color-option" data-color="rgba(0,0,255,0.5)" style="background-color: rgba(0,0,255,0.5);"></div>
+                            <div class="color-option" data-color="rgba(0,128,0,0.5)" style="background-color: rgba(0,128,0,0.5);"></div>
+                            <div class="color-option" data-color="rgba(255,165,0,0.5)" style="background-color: rgba(255,165,0,0.5);"></div>
+                            <div class="color-option" data-color="rgba(128,0,128,0.5)" style="background-color: rgba(128,0,128,0.5);"></div>
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <label for="grid-opacity">Opacity:</label>
+                        <input type="range" id="grid-opacity" min="0.1" max="1" step="0.1" value="0.5">
+                    </div>
+                    <div class="control-row">
+                        <label for="grid-width">Line Width:</label>
+                        <input type="range" id="grid-width" min="0.5" max="3" step="0.5" value="0.5">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Map Container (Center) -->
+        <div id="map-container">
+            <div id="mapDiv"></div>
+            
+            <!-- Time Slider Container -->
+            <div id="time-slider-container" class="time-slider-container hidden">
+                <div class="time-slider-header">
+                    <div class="time-slider-title">Hour</div>
+                    <div class="time-value" id="current-hour-display">--:00</div>
+                </div>
+                <!-- button to colpase time line bar -->
+                <button id="timeline-toggle-button" aria-label="Toggle Timeline">
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                
+                <!-- Bike Hourly Chart Container  -->
+                <div id="bike-chart-container" class="bike-chart-container">
+                    <div id="bike-hourly-chart"></div>
+                </div>
+                
+                <input type="range" id="time-slider" class="time-slider" min="0" max="23" value="12" step="1">
+                <div class="slider-ticks">
+                    <span>00:00</span>
+                    <span>01:00</span>
+                    <span>02:00</span>
+                    <span>03:00</span>
+                    <span>04:00</span>
+                    <span>05:00</span>
+                    <span>06:00</span>
+                    <span>07:00</span>
+                    <span>08:00</span>
+                    <span>09:00</span>
+                    <span>10:00</span>
+                    <span>11:00</span>
+                    <span>12:00</span>
+                    <span>13:00</span>
+                    <span>14:00</span>
+                    <span>15:00</span>
+                    <span>16:00</span>
+                    <span>17:00</span>
+                    <span>18:00</span>
+                    <span>19:00</span>
+                    <span>20:00</span>
+                    <span>21:00</span>
+                    <span>22:00</span>
+                    <span>23:00</span>
+                </div>
+                <div class="play-controls">
+                    <button id="restart-button" class="play-control">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                    <button id="play-button" class="play-control">
+                        <i class="fas fa-play"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Sidebar - Weather Data and other info -->
+        <div id="right-sidebar" class="collapsed">
+            <h2>Weather Data</h2>
+            <div id="weather-content">
+                <div class="no-data-message" id="no-weather-data">
+                    Select a date to view weather information
+                </div>
+                <div id="weather-data-container" style="display: none;">
+                    <div id="temp-chart"></div>
+                    <div class="weather-stats">
+                        <div class="weather-stat-card">
+                            <div class="weather-stat-value" id="min-temp">--</div>
+                            <div class="weather-stat-label">Minimum Temp (°C)</div>
+                        </div>
+                        <div class="weather-stat-card">
+                            <div class="weather-stat-value" id="max-temp">--</div>
+                            <div class="weather-stat-label">Maximum Temp (°C)</div>
+                        </div>
+                        <div class="weather-stat-card">
+                            <div class="weather-stat-value" id="avg-temp">--</div>
+                            <div class="weather-stat-label">Average Temp (°C)</div>
+                        </div>
+                        <div class="weather-stat-card">
+                            <div class="weather-stat-value" id="weather-description">--</div>
+                            <div class="weather-stat-label">Weather Condition</div>
+                        </div>
+                        <div style="display: none;" id="ride-count-display">--</div>
+                    </div>
+                </div>
+            </div>
+            <div id="description">
+                <h3>About This Visualization</h3>
+                <p>This interactive map displays bike sharing data from Washington DC in 2025. The visualization shows bike rental patterns, points of interest, and weather data to help analyze usage trends and urban mobility.</p>
+                <p>Select a date to see rental patterns, toggle different point-of-interest layers, and use the hourly view to see how bike usage changes throughout the day.</p>
+                <p>Weather data is displayed on the right sidebar when a date is selected, helping correlate bike usage with weather conditions.</p>  
+        </div>
+    </div>
+    
+    
+    <script>
+        // Initial data from Plotly
+        var plotlyData = {plotly_json};
+        
+        // Layer indices
+        var layerIndices = {layer_indices};
+        
+        // Bike data by date
+        var bikeDataByDate = {bike_data_json};
+        
+        // Weather data by date
+        var weatherDataByDate = {weather_data_json};
+        
+        // Plotly configuration 
+        var plotlyConfig = {config_json};
+
+        let currentViewMode = 'hourly';
+        
+        console.log("Layer indices:", layerIndices);
+        console.log("Bike data available for dates:", Object.keys(bikeDataByDate).length);
+        console.log("Weather data available for dates:", Object.keys(weatherDataByDate).length);
+        
+        // Create the plot with configuration
+        Plotly.newPlot('mapDiv', plotlyData.data, plotlyData.layout, plotlyConfig);
+        
+        function safeToggleLayer(layerType, isVisible) {
+            const graphDiv = document.getElementById('mapDiv');
+            const currentData = graphDiv.data || [];
+            
+            console.log(`Alterando visibilidade de ${layerType} para ${isVisible}`);
+            let changed = false;
+            
+            if (layerType === 'grid') {
+                for (let i = 0; i < currentData.length; i++) {
+                    if (currentData[i].name === 'Grid' || 
+                        (currentData[i].legendgroup && currentData[i].legendgroup === 'Grid')) {
+                        currentData[i].visible = isVisible;
+                        changed = true;
+                    }
+                }
+            } 
+            else if (layerType === 'bike') {
+                for (let i = 0; i < currentData.length; i++) {
+                    if (currentData[i].name === 'Bike Density') {
+                        currentData[i].visible = isVisible;
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+            else if (layerType === 'poi-all') {
+                for (let i = 0; i < currentData.length; i++) {
+                    if (currentData[i].legendgroup === 'POI') {
+                        currentData[i].visible = isVisible;
+                        changed = true;
+                    }
+                }
+            }
+            else if (layerType === 'poi-museums') {
+                for (let i = 0; i < currentData.length; i++) {
+                    if (currentData[i].name === 'Museums') {
+                        currentData[i].visible = isVisible;
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+            else if (layerType === 'poi-universities') {
+                for (let i = 0; i < currentData.length; i++) {
+                    if (currentData[i].name === 'Universities') {
+                        currentData[i].visible = isVisible;
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+            else if (layerType === 'poi-memorials') {
+                for (let i = 0; i < currentData.length; i++) {
+                    if (currentData[i].name === 'Memorials') {
+                        currentData[i].visible = isVisible;
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+            else if (layerType === 'poi-attractions') {
+                for (let i = 0; i < currentData.length; i++) {
+                    if (currentData[i].name === 'Attractions') {
+                        currentData[i].visible = isVisible;
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+            else if (layerType === 'poi-cafes') {
+                for (let i = 0; i < currentData.length; i++) {
+                    if (currentData[i].name === 'Cafes') {
+                        currentData[i].visible = isVisible;
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+            else if (layerType === 'poi-restaurants') {
+                for (let i = 0; i < currentData.length; i++) {
+                    if (currentData[i].name === 'Restaurants') {
+                        currentData[i].visible = isVisible;
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+            else if (layerType === 'poi-bars') {
+                for (let i = 0; i < currentData.length; i++) {
+                    if (currentData[i].name === 'Bars') {
+                        currentData[i].visible = isVisible;
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+            else if (layerType === 'poi-pubs') {
+                for (let i = 0; i < currentData.length; i++) {
+                    if (currentData[i].name === 'Pubs') {
+                        currentData[i].visible = isVisible;
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+            else if (layerType === 'poi-nightclubs') {
+                for (let i = 0; i < currentData.length; i++) {
+                    if (currentData[i].name === 'Nightclubs') {
+                        currentData[i].visible = isVisible;
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+
+            if (changed) {
+                Plotly.redraw(graphDiv);
+                console.log(`Camadas ${layerType} atualizadas com sucesso`);
+            } else {
+                console.warn(`Nenhuma camada encontrada para ${layerType}`);
+                
+                if (layerType === 'grid' && layerIndices.grid && layerIndices.grid.indices) {
+                    Plotly.restyle('mapDiv', {visible: isVisible}, layerIndices.grid.indices);
+                    console.log("Usado método de fallback para grid");
+                }
+                else if (layerType === 'bike' && layerIndices.bike_placeholder !== undefined) {
+                    Plotly.restyle('mapDiv', {visible: isVisible}, [layerIndices.bike_placeholder]);
+                    console.log("Usado método de fallback para bike");
+                }
+                else if (layerType === 'poi-all') {
+                    Plotly.restyle('mapDiv', {visible: isVisible}, [0, 1, 2]);
+                    console.log("Usado método de fallback para poi-all");
+                }
+                else if (layerType === 'poi-museums') {
+                    Plotly.restyle('mapDiv', {visible: isVisible}, [0]);
+                    console.log("Usado método de fallback para poi-museums");
+                }
+                else if (layerType === 'poi-universities') {
+                    Plotly.restyle('mapDiv', {visible: isVisible}, [1]);
+                    console.log("Usado método de fallback para poi-universities");
+                }
+                else if (layerType === 'poi-memorials') {
+                    Plotly.restyle('mapDiv', {visible: isVisible}, [2]);
+                    console.log("Usado método de fallback para poi-memorials");
+                }
+                else if (layerType === 'poi-attractions') {
+                    Plotly.restyle('mapDiv', {visible: isVisible}, [3]);
+                    console.log("Usado método de fallback para poi-attractions");
+                }
+                else if (layerType === 'poi-cafes') {
+                    Plotly.restyle('mapDiv', {visible: isVisible}, [4]);
+                    console.log("Usado método de fallback para poi-cafes");
+                }
+                else if (layerType === 'poi-restaurants') {
+                    Plotly.restyle('mapDiv', {visible: isVisible}, [5]);
+                    console.log("Usado método de fallback para poi-restaurants");
+                }
+                else if (layerType === 'poi-bars') {
+                    Plotly.restyle('mapDiv', {visible: isVisible}, [6]);
+                    console.log("Usado método de fallback para poi-bars");
+                }
+                else if (layerType === 'poi-pubs') {
+                    Plotly.restyle('mapDiv', {visible: isVisible}, [7]);
+                    console.log("Usado método de fallback para poi-pubs");
+                }
+                else if (layerType === 'poi-nightclubs') {
+                    Plotly.restyle('mapDiv', {visible: isVisible}, [8]);
+                    console.log("Usado método de fallback para poi-nightclubs");
+                }
+            }
+        }
+        
+        // Initialize the calendar with available dates
+        const bikeDatePicker = document.getElementById('bike-date');
+        let availableDates = [];
+        
+        if (bikeDataByDate) {
+            availableDates = Object.keys(bikeDataByDate);
+            
+            var datepicker = flatpickr(bikeDatePicker, {
+                enableTime: false,
+                dateFormat: "Y-m-d",
+                enable: availableDates,  
+                inline: false,
+                onChange: function(selectedDates, dateStr) {
+                    updateBikeLayer(dateStr);
+                    
+                    const rightSidebar = document.getElementById('right-sidebar');
+                    const rightToggleButton = document.getElementById('right-toggle-button');
+                    
+                    rightSidebar.classList.remove('collapsed');
+                    rightToggleButton.classList.remove('collapsed');
+                    
+                    rightToggleButton.innerHTML = '<i class="fas fa-chevron-right"></i>';
+                    
+                    setTimeout(function() {
+                        window.dispatchEvent(new Event('resize'));
+                        forceResizeMap();
+                        positionTimeSliderOnCreation();
+                    }, 350);
+                }
+            });
+            
+            if (availableDates.length > 0) {
+                datepicker.setDate(availableDates[0], true);
+            }
+        }
+        //function to force map resize
+        function forceResizeMap() {
+            var mapContainer = document.getElementById('map-container');
+            var mapDiv = document.getElementById('mapDiv');
+            var width = mapContainer.offsetWidth;
+            var height = mapContainer.offsetHeight;
+            
+            console.log("Redimensionando mapa para:", width, "x", height);
+            
+            Plotly.relayout('mapDiv', {
+                width: width,
+                height: height,
+                autosize: true
+            });
+        }
+        
+
+        function updateBikeLayer(date) {
+            const dateData = bikeDataByDate[date];
+            
+            if (!dateData) {
+                console.warn("No data available for date:", date);
+                return;
+            }
+            
+            document.getElementById('ride-count').textContent = dateData.count;
+            
+            if (currentViewMode === 'hourly' && dateData.hourly) {
+                // Hourly view mode
+                document.getElementById('time-slider-container').classList.remove('hidden');
+                
+                const timeSlider = document.getElementById('time-slider');
+                timeSlider.value = 0;
+                document.getElementById('current-hour-display').textContent = formatHourDisplay(0);
+                
+                updateHeatmapForHour(date, 0);
+            } else {
+                // Overall view mode - use all points
+                document.getElementById('time-slider-container').classList.add('hidden');
+                updateHeatmapForEntireDay(date);
+            }
+            
+            updateWeatherData(date);
+        }
+                
+        // Format hour display (00:00 format)
+        function formatHourDisplay(hour) {
+            return `${hour.toString().padStart(2, '0')}:00`;
+        }
+        
+        // Update heatmap for specific hour
+        function updateHeatmapForHour(date, hour) {
+            const dateData = bikeDataByDate[date];
+            if (!dateData || !dateData.hourly || !dateData.hourly[hour]) return;
+            
+            const hourData = dateData.hourly[hour];
+            
+            if (!hourData.lat || hourData.lat.length === 0) {
+                console.log(`No data for hour ${hour}`);
+                const emptyTrace = {
+                    type: 'densitymapbox',
+                    lat: [],
+                    lon: [],
+                    z: [],
+                    radius: 10,
+                    colorscale: [[0, 'rgba(0,0,128,0)'], [0.3, 'rgba(0,0,128,0.3)'], [1.0, 'rgba(255,0,0,0.8)']],
+                    showscale: false,
+                    hoverinfo: 'none',
+                    name: 'Bike Density'
+                };
+                
+                Plotly.deleteTraces('mapDiv', [layerIndices.bike_placeholder]);
+                Plotly.addTraces('mapDiv', emptyTrace);
+                layerIndices.bike_placeholder = document.getElementById('mapDiv').data.length - 1;
+                
+                // Update ride counter
+                document.getElementById('ride-count').textContent = '0';
+                document.getElementById('ride-count-display').textContent = '0';
+                
+                // Update bike chart for the current hour
+                updateBikeRentalBarChart(date, hour);
+                
+                return;
+            }
+            
+            const heatmapTrace = {
+                type: 'densitymapbox',
+                lat: hourData.lat,
+                lon: hourData.lng,
+                z: Array(hourData.lat.length).fill(1),
+                radius: 10,
+                colorscale: [[0, 'rgba(0,0,128,0)'], [0.3, 'rgba(0,0,128,0.3)'], [1.0, 'rgba(255,0,0,0.8)']],
+                showscale: false,
+                hoverinfo: 'none',
+                name: 'Bike Density'
+            };
+            
+            const isBikeLayerVisible = document.getElementById('layer-bike-density').checked;
+            
+            Plotly.deleteTraces('mapDiv', [layerIndices.bike_placeholder]);
+            Plotly.addTraces('mapDiv', heatmapTrace);
+            
+            layerIndices.bike_placeholder = document.getElementById('mapDiv').data.length - 1;
+            
+            Plotly.restyle('mapDiv', {visible: isBikeLayerVisible}, [layerIndices.bike_placeholder]);
+            
+            // Update ride counter
+            document.getElementById('ride-count').textContent = hourData.count;
+            document.getElementById('ride-count-display').textContent = hourData.count;
+            
+            // Update bike chart for the current hour
+            updateBikeRentalBarChart(date, hour);
+        }
+
+        function updateHeatmapForEntireDay(date) {
+            const dateData = bikeDataByDate[date];
+            if (!dateData) {
+                console.warn("No data available for date:", date);
+                return;
+            }
+            
+            console.log(`Updating heatmap for entire day: ${date}`);
+            
+            // Create heatmap using all data points for the day
+            const heatmapTrace = {
+                type: 'densitymapbox',
+                lat: dateData.lat,
+                lon: dateData.lng,
+                z: Array(dateData.lat.length).fill(1),
+                radius: 10,
+                colorscale: [[0, 'rgba(0,0,128,0)'], [0.3, 'rgba(0,0,128,0.3)'], [1.0, 'rgba(255,0,0,0.8)']],
+                showscale: false,
+                hoverinfo: 'none',
+                name: 'Bike Density'
+            };
+            
+            const isBikeLayerVisible = document.getElementById('layer-bike-density').checked;
+            
+            // Replace the existing trace
+            Plotly.deleteTraces('mapDiv', [layerIndices.bike_placeholder]);
+            Plotly.addTraces('mapDiv', heatmapTrace);
+            
+            // Update the index after adding the new trace
+            layerIndices.bike_placeholder = document.getElementById('mapDiv').data.length - 1;
+            
+            // Apply visibility based on checkbox
+            Plotly.restyle('mapDiv', {visible: isBikeLayerVisible}, [layerIndices.bike_placeholder]);
+            
+            // Update ride counter to show total for the day
+            document.getElementById('ride-count').textContent = dateData.count;
+            document.getElementById('ride-count-display').textContent = dateData.count;
+            
+            console.log(`Daily heatmap updated with ${dateData.lat.length} points`);
+            
+            // Force redraw to ensure changes are visible
+            Plotly.redraw('mapDiv');
+        }
+
+
+        function toggleViewMode(mode) {
+            if (currentViewMode === mode) return; 
+            
+            currentViewMode = mode;
+            console.log(`Switching to ${mode} view mode`);
+            
+            const selectedDate = document.getElementById('bike-date').value;
+            if (!selectedDate) {
+                console.warn("No date selected");
+                return;
+            }
+            
+            if (mode === 'overall') {
+                // Switch to overall view
+                // Hide time slider
+                document.getElementById('time-slider-container').classList.add('hidden');
+                
+                //stop animation
+                if (animationInterval) {
+                    clearInterval(animationInterval);
+                    animationInterval = null;
+                    document.getElementById('play-button').innerHTML = '<i class="fas fa-play"></i>';
+                    isPlaying = false;
+                }
+                
+                // Update the heatmap to show entire day
+                updateHeatmapForEntireDay(selectedDate);
+            } else {
+                // Switch to hourly view
+                // Show time slider
+                document.getElementById('time-slider-container').classList.remove('hidden');
+                
+                const currentHour = parseInt(document.getElementById('time-slider').value);
+                
+                updateHeatmapForHour(selectedDate, currentHour);
+                
+                setTimeout(positionTimeSliderOnCreation, 100);
+            }
+        }
+
+
+        // Function to update the bike rental bar chart
+        function updateBikeRentalBarChart(date, selectedHour) {
+            const dateData = bikeDataByDate[date];
+            if (!dateData || !dateData.hourly) return;
+            
+            const hours = [];
+            const counts = [];
+            
+            for (let hour = 0; hour < 24; hour++) {
+                hours.push(hour);
+                counts.push(dateData.hourly[hour] ? dateData.hourly[hour].count : 0);
+            }
+            
+            // Format hour labels (00:00 format)
+            const hourLabels = hours.map(hour => `${hour.toString().padStart(2, '0')}:00`);
+            
+            // Determine colors based on count values (green to red gradient)
+            const maxCount = Math.max(...counts);
+            const colors = counts.map((count, idx) => {
+                // Normalize the count (0 to 1)
+                const normalizedValue = maxCount > 0 ? count / maxCount : 0;
+                
+                // Highlight the selected hour in red
+                if (idx === selectedHour) {
+                    return 'rgba(255, 0, 0, 0.9)';  
+                }
+                
+                // For other hours, use a green-to-red gradient based on the value
+                const red = Math.floor(normalizedValue * 255);
+                const blue = Math.floor((1 - normalizedValue) * 255);
+                return `rgba(${red}, 0, ${blue}, 0.7)`;
+            });
+            
+            const trace = {
+                x: hourLabels,
+                y: counts,
+                type: 'bar',
+                marker: {
+                    color: colors
+                },
+                hoverinfo: 'y',
+                hovertemplate: 'Rentals: %{y}<extra></extra>'
+            };
+            
+            const layout = {
+                margin: { t: 0, r: 0, l: 0, b: 0 }, 
+                paper_bgcolor: 'rgba(0,0,0,0)', 
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                height: 70, 
+                xaxis: {
+                    showticklabels: false, // hide labels
+                    showgrid: false,       
+                    zeroline: false        
+                },
+                yaxis: {
+                    showticklabels: false, // hide y values
+                    showgrid: false,       
+                    zeroline: false        
+                },
+                bargap: 0.05,
+                showlegend: false
+            };
+            
+            const config = {
+                responsive: true,
+                displayModeBar: false
+            };
+            
+            Plotly.react('bike-hourly-chart', [trace], layout, config);
+        }
+
+        document.getElementById('restart-button').addEventListener('click', function() {
+            const timeSlider = document.getElementById('time-slider');
+            const currentHourDisplay = document.getElementById('current-hour-display');
+            const selectedDate = bikeDatePicker.value; 
+
+            // Reset the slider to 00:00
+            timeSlider.value = 0;
+            currentHourDisplay.textContent = formatHourDisplay(0);
+
+            // Update the heatmap for 00:00
+            updateHeatmapForHour(selectedDate, 0);
+
+            //stop the animation if it is running
+            if (animationInterval) {
+                clearInterval(animationInterval);
+                animationInterval = null;
+                document.getElementById('play-button').innerHTML = '<i class="fas fa-play"></i>';
+            }
+        });
+        
+        // Time slider functionality
+        let animationInterval = null;
+        let isPlaying = false;
+        
+        (function setupTimeSlider() {
+            const timeSlider = document.getElementById('time-slider');
+            const timeContainer = document.getElementById('time-slider-container');
+            const currentHourDisplay = document.getElementById('current-hour-display');
+            const playButton = document.getElementById('play-button');
+            
+            let selectedDate = null;
+
+            // Update the time display when slider changes
+            timeSlider.addEventListener('input', function() {
+                const hour = parseInt(this.value);
+                currentHourDisplay.textContent = formatHourDisplay(hour);
+                updateHeatmapForHour(selectedDate, hour);
+            });
+            
+            // Toggle play/pause
+            playButton.addEventListener('click', function() {
+                isPlaying = !isPlaying;
+                
+                if (isPlaying) {
+                    this.innerHTML = '<i class="fas fa-pause"></i>';
+                    startAnimation();
+                } else {
+                    this.innerHTML = '<i class="fas fa-play"></i>';
+                    stopAnimation();
+                }
+            });
+            
+            // Animation functionality
+            function startAnimation() {
+                if (animationInterval) clearInterval(animationInterval);
+                
+                animationInterval = setInterval(() => {
+                    let currentHour = parseInt(timeSlider.value);
+                    if (currentHour === 23) {
+                        stopAnimation();
+                        playButton.innerHTML = '<i class="fas fa-play"></i>'; 
+                        isPlaying = false;
+                        return;
+                    }
+                    currentHour = (currentHour + 1) % 24;
+                    timeSlider.value = currentHour;
+                    currentHourDisplay.textContent = formatHourDisplay(currentHour);
+                    updateHeatmapForHour(selectedDate, currentHour);
+                    updateWeatherDescriptionForHour(selectedDate, currentHour);
+                }, 1000);
+            }
+            
+            function stopAnimation() {
+                if (animationInterval) {
+                    clearInterval(animationInterval);
+                    animationInterval = null;
+                }
+            }
+            
+            // Hook into bike layer checkbox
+            const bikeDensityCheckbox = document.getElementById('layer-bike-density');
+            
+            bikeDensityCheckbox.addEventListener('change', function() {
+                const isChecked = this.checked;
+                timeContainer.classList.toggle('hidden', !isChecked);
+                
+                if (!isChecked) {
+                    stopAnimation();
+                    playButton.innerHTML = '<i class="fas fa-play"></i>';
+                    isPlaying = false;
+                } else {
+                    setTimeout(positionTimeSliderOnCreation, 100);
+                }
+            });
+            
+            const originalUpdateBikeLayer = updateBikeLayer;
+            window.updateBikeLayer = function(date) {
+                selectedDate = date;
+                originalUpdateBikeLayer(date);
+                setTimeout(positionTimeSliderOnCreation, 100);
+            };
+            
+            timeContainer.classList.add('hidden');
+        })();
+
+        function positionTimeSliderOnCreation() {
+            const timeSliderContainer = document.getElementById('time-slider-container');
+            if (!timeSliderContainer) return;
+            timeSliderContainer.style.left = '';
+            timeSliderContainer.style.right = '';
+            timeSliderContainer.style.width = '';
+            timeSliderContainer.style.transform = '';
+
+            const isRightSidebarVisible = !document.getElementById('right-sidebar').classList.contains('collapsed');
+            if (isRightSidebarVisible) {
+                document.body.classList.add('right-visible');
+            } else {
+                document.body.classList.remove('right-visible');
+            }
+        }
+        
+        document.getElementById('right-toggle-button').addEventListener('click', function() {
+            setTimeout(positionTimeSliderOnCreation, 350);
+        });
+        
+        // Function to update weather data display based on selected date (square info)
+        function updateWeatherData(date) {
+            const weatherData = weatherDataByDate[date];
+            const weatherContainer = document.getElementById('weather-data-container');
+            const noWeatherMessage = document.getElementById('no-weather-data');
+            
+            if (weatherData) {
+                console.log("Weather data for date:", date, weatherData);
+                weatherContainer.style.display = 'block';
+                noWeatherMessage.style.display = 'none';
+                
+                document.getElementById('min-temp').textContent = 
+                    weatherData.min_temp ? weatherData.min_temp.toFixed(1) : '--';
+                document.getElementById('max-temp').textContent = 
+                    weatherData.max_temp ? weatherData.max_temp.toFixed(1) : '--';
+                document.getElementById('avg-temp').textContent = 
+                    weatherData.avg_temp ? weatherData.avg_temp.toFixed(1) : '--';
+                
+                document.getElementById('weather-description').textContent = 
+                    weatherData.weather_main ? weatherData.weather_main : '--';
+                
+                createTemperatureChart(weatherData.hours, weatherData.temp, weatherData.feels_like);
+            } else {
+                weatherContainer.style.display = 'none';
+                noWeatherMessage.style.display = 'block';
+                noWeatherMessage.textContent = `No weather data available for ${date}`;
+            }
+        }
+
+
+        //function to update weather description based on selected date and hour
+        function updateWeatherDescriptionForHour(date, hour) {
+            if (!date) return;
+            const weatherData = weatherDataByDate[date];
+            if (!weatherData) return;
+            const weatherDescElement = document.getElementById('weather-description');
+            if (!weatherDescElement) return;
+            console.log("Updating weather description for hour:", hour);
+            let weatherText = '--';
+            if (weatherData.hourly_weather && weatherData.hourly_weather[hour]) {
+                weatherText = weatherData.hourly_weather[hour];
+            } else if (weatherData.weather_main) {
+                weatherText = weatherData.weather_main;
+            }
+            const formattedText = weatherText.charAt(0).toUpperCase() + weatherText.slice(1);
+            const iconHtml = getWeatherIcon(weatherText);
+            weatherDescElement.innerHTML = iconHtml + formattedText;
+        }
+
+        // Function to get weather icon based on description
+        function getWeatherIcon(weatherDescription) {
+            const description = weatherDescription.toLowerCase();
+            if (description.includes('clear') || description.includes('sky is clear')) {
+                return '<i class="fas fa-sun" style="color: #FFD700;"></i> ';
+            } else if (description.includes('few clouds')) {
+                return '<i class="fas fa-cloud-sun" style="color: #87CEEB;"></i> ';
+            } else if (description.includes('scattered clouds') || description.includes('broken clouds')) {
+                return '<i class="fas fa-cloud" style="color: #D3D3D3;"></i> ';
+            } else if (description.includes('overcast clouds')) {
+                return '<i class="fas fa-cloud" style="color: #778899;"></i> ';
+            } else if (description.includes('mist') || description.includes('fog')) {
+                return '<i class="fas fa-smog" style="color: #B0C4DE;"></i> ';
+            } else if (description.includes('light rain') || description.includes('drizzle')) {
+                return '<i class="fas fa-cloud-rain" style="color: #4682B4;"></i> ';
+            } else if (description.includes('moderate rain')) {
+                return '<i class="fas fa-cloud-showers-heavy" style="color: #4169E1;"></i> ';
+            } else if (description.includes('heavy rain')) {
+                return '<i class="fas fa-cloud-showers-heavy" style="color: #000080;"></i> ';
+            } else if (description.includes('thunderstorm')) {
+                return '<i class="fas fa-bolt" style="color: #FFD700;"></i> ';
+            } else if (description.includes('snow')) {
+                return '<i class="fas fa-snowflake" style="color: #F0F8FF;"></i> ';
+            } else {
+                return '<i class="fas fa-cloud" style="color: #A9A9A9;"></i> ';
+            }
+        }
+        
+        
+        // Function to create the temperature chart
+        function createTemperatureChart(hours, temperatures, feelsLike) {
+            console.log("Creating chart with:", {hours, temperatures, feelsLike});
+            
+            const container = document.getElementById('temp-chart');
+            
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            
+            const backgroundColor = isDarkMode ? 'rgba(34, 34, 34, 0.8)' : 'rgba(255, 255, 255, 0.8)';
+            const textColor = isDarkMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.9)';
+            const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)';
+            const temperatureColor = 'rgba(30, 144, 255, 1)';
+            const feelsLikeColor = 'rgba(255, 99, 132, 1)';
+            const temperatureFillColor = isDarkMode ? 'rgba(30, 144, 255, 0.15)' : 'rgba(30, 144, 255, 0.2)';
+
+            Plotly.purge(container);
+
+            if (!hours || !temperatures || hours.length === 0) {
+                console.error("Insufficient data for temperature chart");
+                container.innerHTML = '<div class="no-data-message">No temperature data available</div>';
+                return;
+            }
+            
+            const validHours = Array.isArray(hours) ? hours : [];
+            const validTemps = Array.isArray(temperatures) ? temperatures : [];
+            const numPoints = validHours.length;
+            const tickIndices = [0];
+            
+            if (numPoints > 3) {
+                tickIndices.push(Math.floor(numPoints / 2));
+            }
+            
+            if (numPoints > 1) {
+                tickIndices.push(numPoints - 1);
+            }
+            const formattedHours = validHours.map(hour => {
+                const numHour = parseInt(hour);
+                return isNaN(numHour) ? hour : `${numHour}h`;
+            });
+            const tickValues = tickIndices;
+            const tickTexts = tickIndices.map(index => formattedHours[index]);
+            
+            // Create traces for temperature
+            const tempTrace = {
+                x: formattedHours,
+                y: validTemps,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'Temperature',
+                line: {
+                    color: temperatureColor,
+                    width: 3
+                },
+                marker: {
+                    color: temperatureColor,
+                    size: 5
+                },
+                fill: 'tozeroy',
+                fillcolor: temperatureFillColor,
+                hoverinfo: 'x+y+name',
+                hoverlabel: {
+                    bgcolor: temperatureColor,
+                    font: {color: 'white'}
+                }
+            };
+            
+            const traces = [tempTrace];
+            
+            // Add feels like data if available
+            if (feelsLike && Array.isArray(feelsLike) && feelsLike.length === validHours.length) {
+                const feelsLikeTrace = {
+                    x: formattedHours,
+                    y: feelsLike,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: 'Feels Like',
+                    line: {
+                        color: feelsLikeColor,
+                        width: 3,
+                        dash: 'dash'
+                    },
+                    marker: {
+                        color: feelsLikeColor,
+                        size: 5
+                    },
+                    hoverinfo: 'x+y+name',
+                    hoverlabel: {
+                        bgcolor: feelsLikeColor,
+                        font: {color: 'white'}
+                    }
+                };
+                traces.push(feelsLikeTrace);
+            }
+            
+            const layout = {
+                margin: { t: 30, r: 10, l: 40, b: 40 },
+                paper_bgcolor: 'rgba(0,0,0,0)', 
+                plot_bgcolor: 'rgba(0,0,0,0)', 
+                xaxis: {
+                    title: {
+                        text: 'Time',
+                        font: { size: 10, color: textColor }
+                    },
+                    tickmode: 'array',
+                    tickvals: tickValues,
+                    ticktext: tickTexts,
+                    tickfont: { size: 10, color: textColor },
+                    gridcolor: gridColor
+                },
+                yaxis: {
+                    title: {
+                        text: 'Temperature (°C)',
+                        font: { size: 10, color: textColor }
+                    },
+                    tickfont: { size: 10, color: textColor },
+                    gridcolor: gridColor
+                },
+                width: 270,
+                height: 250,
+                showlegend: true,
+                legend: {
+                    x: 0.5,
+                    y: 1.15,
+                    xanchor: 'center',
+                    orientation: 'h',
+                    font: { size: 9, color: textColor },
+                    bgcolor: 'rgba(0,0,0,0)'
+                },
+                hovermode: 'closest',
+                font: {
+                    family: 'Arial, sans-serif',
+                    color: textColor
+                }
+            };
+            const config = {
+                responsive: true,
+                displayModeBar: false
+            };
+            try {
+                Plotly.newPlot(container, traces, layout, config);
+                console.log("Temperature chart created successfully using Plotly");
+            } catch (error) {
+                console.error("Error creating temperature chart with Plotly:", error);
+                container.innerHTML = '<div class="no-data-message">Error creating temperature chart</div>';
+            }
+        }
+        
+        // Bike Density Layer Control
+        const bikeDensityCheckbox = document.getElementById('layer-bike-density');
+        const bikeControls = document.getElementById('bike-controls');
+        
+        bikeDensityCheckbox.addEventListener('change', function() {
+            const isChecked = this.checked;
+            bikeControls.classList.toggle('visible', isChecked);
+            safeToggleLayer('bike', isChecked);
+            if (isChecked && bikeDatePicker.value) {
+                updateBikeLayer(bikeDatePicker.value);
+            } else if (!isChecked) {
+                document.getElementById('ride-count').textContent = '0';
+            }
+        });
+        
+        // POI layer controls - all categories
+        document.getElementById('layer-poi-all').addEventListener('change', function() {
+            const isChecked = this.checked;
+            document.getElementById('layer-poi-museums').checked = isChecked;
+            document.getElementById('layer-poi-universities').checked = isChecked;
+            document.getElementById('layer-poi-memorials').checked = isChecked;
+            document.getElementById('layer-poi-attractions').checked = isChecked;
+            document.getElementById('layer-poi-cafes').checked = isChecked;
+            document.getElementById('layer-poi-restaurants').checked = isChecked;
+            document.getElementById('layer-poi-bars').checked = isChecked;
+            document.getElementById('layer-poi-pubs').checked = isChecked;
+            document.getElementById('layer-poi-nightclubs').checked = isChecked;
+            Plotly.restyle('mapDiv', {visible: isChecked}, [0, 1, 2, 3, 4, 5, 6, 7, 8]);
+        });
+        
+        // Individual POI category controls
+        document.getElementById('layer-poi-museums').addEventListener('change', function() {
+            Plotly.restyle('mapDiv', {visible: this.checked}, [0]);
+        });
+        document.getElementById('layer-poi-universities').addEventListener('change', function() {
+            Plotly.restyle('mapDiv', {visible: this.checked}, [1]);
+        });
+        document.getElementById('layer-poi-memorials').addEventListener('change', function() {
+            Plotly.restyle('mapDiv', {visible: this.checked}, [2]);
+        });
+        document.getElementById('layer-poi-attractions').addEventListener('change', function() {
+            Plotly.restyle('mapDiv', {visible: this.checked}, [3]);
+        });
+        document.getElementById('layer-poi-cafes').addEventListener('change', function() {
+            Plotly.restyle('mapDiv', {visible: this.checked}, [4]);
+        });
+        document.getElementById('layer-poi-restaurants').addEventListener('change', function() {
+            Plotly.restyle('mapDiv', {visible: this.checked}, [5]);
+        });
+        document.getElementById('layer-poi-bars').addEventListener('change', function() {
+            Plotly.restyle('mapDiv', {visible: this.checked}, [6]);
+        });
+        document.getElementById('layer-poi-pubs').addEventListener('change', function() {
+            Plotly.restyle('mapDiv', {visible: this.checked}, [7]);
+        });
+        document.getElementById('layer-poi-nightclubs').addEventListener('change', function() {
+            Plotly.restyle('mapDiv', {visible: this.checked}, [8]);
+        });
+
+        
+        // Grid layer control
+        document.getElementById('layer-grid').addEventListener('change', function() {
+            const isChecked = this.checked;
+            safeToggleLayer('grid', isChecked);
+            document.getElementById('grid-controls').classList.toggle('visible', isChecked);
+        });
+        
+        // Grid color options
+        document.querySelectorAll('.color-option').forEach(option => {
+            option.addEventListener('click', function() {
+                document.querySelectorAll('.color-option').forEach(opt => opt.classList.remove('selected'));
+                this.classList.add('selected');
+                const color = this.getAttribute('data-color');
+                document.getElementById('grid-color-indicator').style.backgroundColor = color;
+                updateGridStyle();
+            });
+        });
+        
+        // Grid opacity control
+        document.getElementById('grid-opacity').addEventListener('input', function() {
+            updateGridStyle();
+        });
+        
+        // Grid width control
+        document.getElementById('grid-width').addEventListener('input', function() {
+            updateGridStyle();
+        });
+        
+        // Function to update grid styling
+        function updateGridStyle() {
+            const selectedColor = document.querySelector('.color-option.selected').getAttribute('data-color');
+            
+            const opacity = document.getElementById('grid-opacity').value;
+            
+            const width = document.getElementById('grid-width').value;
+            
+            let baseColor = selectedColor.match(/rgba\((\d+),(\d+),(\d+)/);
+            if (baseColor) {
+                const newColor = `rgba(${baseColor[1]},${baseColor[2]},${baseColor[3]},${opacity})`;
+                try {
+                    const currentData = document.getElementById('mapDiv').data;
+                    
+                    for (const index of layerIndices.grid.indices) {
+                        if (index >= 0 && index < currentData.length) {
+                            currentData[index].line.color = newColor;
+                            currentData[index].line.width = parseFloat(width);
+                        }
+                    }
+                    
+                    Plotly.redraw('mapDiv');
+                    console.log("Grid style updated directly");
+                } catch (error) {
+                    console.error("Error updating grid style directly:", error);
+                    
+                    try {
+                        const update = {
+                            'line.color': newColor,
+                            'line.width': parseFloat(width)
+                        };
+                        
+                        Plotly.restyle('mapDiv', update, layerIndices.grid.indices);
+                        console.log("Grid style updated via restyle");
+                    } catch (err) {
+                        console.error("Error updating grid style via restyle:", err);
+                    }
+                }
+                
+                document.getElementById('grid-color-indicator').style.backgroundColor = newColor;
+            }
+        }
+        
+        // POI all checkbox functionality
+        function updatePoiAllCheckbox() {
+            const museumChecked = document.getElementById('layer-poi-museums').checked;
+            const universityChecked = document.getElementById('layer-poi-universities').checked;
+            const memorialChecked = document.getElementById('layer-poi-memorials').checked;
+            
+            document.getElementById('layer-poi-all').checked = 
+                museumChecked && universityChecked && memorialChecked;
+            
+            if (!museumChecked && !universityChecked && !memorialChecked) {
+                document.getElementById('layer-poi-all').checked = false;
+            }
+        }
+        
+        // left Sidebar toggle functionality
+        document.getElementById('toggle-button').addEventListener('click', function () {
+            const controlPanel = document.getElementById('control-panel');
+            const toggleButton = document.getElementById('toggle-button');
+            const isCollapsed = controlPanel.classList.contains('collapsed');
+
+            if (isCollapsed) {
+                controlPanel.classList.remove('collapsed');
+                toggleButton.classList.remove('collapsed');
+            } else {
+                controlPanel.classList.add('collapsed');
+                toggleButton.classList.add('collapsed');
+            }
+            setTimeout(() => {
+                positionTimeSliderOnCreation();
+                Plotly.Plots.resize('bike-hourly-chart');
+                const timeline = document.getElementById('timelineDiv');
+                if (timeline) {
+                    timeline.style.width = '100%';
+                    Plotly.Plots.resize(timeline);
+                }
+            }, 400);
+        });
+
+        document.getElementById('right-toggle-button').addEventListener('click', function() {
+            const rightSidebar = document.getElementById('right-sidebar');
+            const rightToggleButton = document.getElementById('right-toggle-button');
+            
+            const isVisible = !rightSidebar.classList.contains('collapsed');
+            
+            if (isVisible) {
+                rightSidebar.classList.add('collapsed');
+                rightToggleButton.classList.add('collapsed');
+                rightToggleButton.innerHTML = '<i class="fas fa-chevron-left"></i>';
+                document.body.classList.remove('right-visible');
+            } else {
+                rightSidebar.classList.remove('collapsed');
+                rightToggleButton.classList.remove('collapsed');
+                rightToggleButton.innerHTML = '<i class="fas fa-chevron-right"></i>';
+                document.body.classList.add('right-visible'); 
+            }
+            
+
+            positionTimeSliderOnCreation();
+            
+            setTimeout(function() {
+                window.dispatchEvent(new Event('resize'));
+                forceResizeMap();
+                setTimeout(forceResizeMap, 100);
+                setTimeout(forceResizeMap, 300);
+                setTimeout(forceResizeMap, 500);
+                setTimeout(positionTimeSliderOnCreation, 100);
+                setTimeout(positionTimeSliderOnCreation, 350);
+            }, 350);
+        });
+
+        // Timeline colapse button functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const timelineToggleButton = document.getElementById('timeline-toggle-button');
+            const timeSliderContainer = document.getElementById('time-slider-container');
+            
+            if (timelineToggleButton && timeSliderContainer) {
+                timelineToggleButton.addEventListener('click', function() {
+                    timeSliderContainer.classList.toggle('collapsed');
+                    
+                    const icon = this.querySelector('i');
+                    if (timeSliderContainer.classList.contains('collapsed')) {
+                        icon.className = 'fas fa-chevron-up';
+                    } else {
+                        icon.className = 'fas fa-chevron-down';
+                    }
+                    
+                    positionTimeSliderOnCreation();
+                });
+            }
+        });
+
+        // Dark mode toggle functionality
+        document.getElementById('theme-switch').addEventListener('change', function() {
+            document.body.classList.toggle('dark-mode');
+            
+
+            if (datepicker) {
+                const currentDate = datepicker.selectedDates[0];
+                datepicker.destroy();
+                datepicker = flatpickr(bikeDatePicker, {
+                    enableTime: false,
+                    dateFormat: "Y-m-d",
+                    enable: availableDates,
+                    inline: false,
+                    onChange: function(selectedDates, dateStr) {
+                        updateBikeLayer(dateStr);
+                        
+
+                        const rightSidebar = document.getElementById('right-sidebar');
+                        const rightToggleButton = document.getElementById('right-toggle-button');
+                        
+                        rightSidebar.classList.remove('collapsed');
+                        rightToggleButton.classList.remove('collapsed');
+                        rightToggleButton.innerHTML = '<i class="fas fa-chevron-right"></i>';
+                        
+
+                        setTimeout(function() {
+                            forceResizeMap();
+                            positionTimeSliderOnCreation();
+                        }, 350);
+                    }
+                });
+                if (currentDate) {
+                    datepicker.setDate(currentDate);
+                }
+            }
+            
+            const selectedDate = bikeDatePicker.value;
+            const selectedHour = parseInt(document.getElementById('time-slider').value);
+            if (selectedDate && !isNaN(selectedHour)) {
+                updateBikeRentalBarChart(selectedDate, selectedHour);
+            }
+
+            const bikeDatePickerValue = document.getElementById('bike-date').value;
+            if (bikeDatePickerValue) {
+                updateWeatherData(bikeDatePickerValue);
+            }
+            
+
+            if (document.body.classList.contains('dark-mode')) {
+                localStorage.setItem('theme', 'dark');
+            } else {
+                localStorage.setItem('theme', 'light');
+            }
+        });
+
+
+        document.getElementById('layer-bike-density').addEventListener('change', function() {
+            const isChecked = this.checked;
+            const timeContainer = document.getElementById('time-slider-container');
+            timeContainer.classList.toggle('hidden', !isChecked);
+            
+            if (!isChecked) {
+                if (animationInterval) {
+                    clearInterval(animationInterval);
+                    animationInterval = null;
+                }
+                document.getElementById('play-button').innerHTML = '<i class="fas fa-play"></i>';
+                isPlaying = false;
+            } else {
+                positionTimeSliderOnCreation();
+                setTimeout(positionTimeSliderOnCreation, 100);
+            }
+        });
+
+
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!document.getElementById('view-mode-toggle')) {
+                const bikeControls = document.getElementById('bike-controls');
+                if (bikeControls) {
+                    const toggleRow = document.createElement('div');
+                    toggleRow.className = 'control-row';
+                    toggleRow.innerHTML = `
+                        <label>View Mode:</label>
+                        <div class="toggle-switch-container">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="view-mode-toggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <div class="toggle-labels">
+                                <span class="toggle-label" id="hourly-label">Hourly</span>
+                                <span class="toggle-label" id="overall-label">Overall</span>
+                            </div>
+                        </div>
+                    `;
+                    bikeControls.appendChild(toggleRow);
+                    
+                    const viewModeToggle = document.getElementById('view-mode-toggle');
+                    if (viewModeToggle) {
+                        viewModeToggle.addEventListener('change', function() {
+                            toggleViewMode(this.checked ? 'overall' : 'hourly');
+                        });
+                    }
+                }
+            } else {
+                document.getElementById('view-mode-toggle').addEventListener('change', function() {
+                    toggleViewMode(this.checked ? 'overall' : 'hourly');
+                });
+            }
+        });
+        
+        // Check for saved user preference
+        window.addEventListener('load', function() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark-mode');
+                document.getElementById('theme-switch').checked = true;
+            }
+            
+            document.getElementById('right-sidebar').classList.add('collapsed');
+            document.getElementById('right-toggle-button').classList.add('collapsed');
+            
+
+            setTimeout(forceResizeMap, 100);
+        });
+        
+
+        window.addEventListener('resize', function() {
+            resizeMap();
+            positionTimeSliderOnCreation();
+        });
+
+        function resizeMap() {
+            var mapContainer = document.getElementById('map-container');
+            Plotly.relayout('mapDiv', {
+                width: mapContainer.offsetWidth,
+                height: mapContainer.offsetHeight
+            });
+        }
+        
+        // Initial resize and add window resize listener
+        window.addEventListener('load', function () {
+            if (!document.getElementById('right-sidebar').classList.contains('collapsed')) {
+                document.body.classList.add('right-visible');
+            }
+        });
+        window.addEventListener('resize', resizeMap);
+    </script>
+</body>
+</html>
